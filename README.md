@@ -25,7 +25,13 @@ A powerful Python application that automatically processes receipt images from G
 - **Validation Engine**: Comprehensive data quality scoring and issue detection
 - **Confidence Scoring**: Multi-factor reliability assessment
 
-### 📋 **Next Phase**: Data Export and Spreadsheet Generation
+### ✅ **Phase 4 Complete**: Data Export and Spreadsheet Generation
+- **Multi-Format Export**: Professional CSV, Excel, and JSON output
+- **Export Templates**: Customizable templates for personal, business, tax, and accounting
+- **Visual Reports**: Charts, graphs, and PDF reports with spending analytics
+- **Batch Processing**: Multiple templates and comprehensive export packages
+- **Professional Formatting**: Excel worksheets with charts, styling, and summaries
+- **Data Analysis**: Merchant breakdowns, temporal analysis, and quality metrics
 
 ## Installation
 
@@ -106,6 +112,24 @@ python main.py --drive-folder <FOLDER_ID> --ocr --no-preprocessing
 python main.py --config my-config.yaml --drive-folder <FOLDER_ID> --ocr
 ```
 
+### Data Export
+
+```bash
+# Standard export (uses configured format)
+python main.py --drive-folder <FOLDER_ID> --ocr --export
+
+# Export with specific templates
+python main.py --drive-folder <FOLDER_ID> --ocr \
+  --export-templates personal_expenses business_expenses
+
+# Comprehensive export package with reports
+python main.py --drive-folder <FOLDER_ID> --ocr --export-comprehensive
+
+# Include visual reports and charts
+python main.py --drive-folder <FOLDER_ID> --ocr \
+  --export-comprehensive --export-reports
+```
+
 ### Advanced Options
 
 ```bash
@@ -145,6 +169,8 @@ export:
   output_format: 'xlsx'           # Output format: csv, xlsx, json
   output_directory: 'output'      # Directory for exported files
   include_confidence_scores: true # Include OCR confidence in output
+  include_raw_text: false        # Include raw OCR text in output
+  date_format: '%Y-%m-%d'        # Date format for exports
 
 # Storage and caching settings
 storage:
@@ -218,7 +244,18 @@ Valid Receipt Summary:
 Cache Usage: 156.7 MB / 1000 MB (15.7%)
 Unique files: 23, Duplicates: 2
 
-✓ Phase 3 OCR processing completed successfully!
+============================================================
+EXPORTING DATA
+============================================================
+✓ Comprehensive export package created!
+  Total files: 12
+  Spreadsheets: 3
+  Reports: 4
+  Template exports: 5
+  Output directory: ./output
+
+✓ Phase 4 OCR processing and export completed successfully!
+All phases implemented: Image processing, OCR, data extraction, and export.
 ```
 
 ### Extracted Data Structure
@@ -246,6 +283,42 @@ Each receipt is parsed into structured data:
   "confidence_score": 0.91
 }
 ```
+
+### Export Output Files
+
+When using export functionality, the application generates various output files:
+
+**Standard Export (`--export`):**
+- `receipts_source_timestamp.xlsx` - Main Excel file with multiple worksheets
+- `receipts_source_timestamp.csv` - CSV format for data analysis
+- `receipts_source_timestamp.json` - JSON format with full metadata
+
+**Template Export (`--export-templates`):**
+- `personal_expenses_source_timestamp.xlsx` - Personal expense tracking
+- `business_expenses_source_timestamp.csv` - Business expense report
+- `tax_preparation_source_timestamp.xlsx` - Tax-optimized format
+
+**Comprehensive Export (`--export-comprehensive`):**
+- Multiple template exports in various formats
+- `receipt_report_source_timestamp.pdf` - Visual analytics report
+- `chart_spending_by_merchant_timestamp.png` - Merchant spending chart
+- `chart_spending_over_time_timestamp.png` - Timeline analysis
+- `summary_report_source_timestamp.txt` - Text summary
+
+Each Excel file contains multiple worksheets:
+- **Summary** - Key statistics and merchant breakdown with charts
+- **Receipt Details** - Complete receipt information
+- **Line Items** - Individual item details from receipts
+
+## Export Templates
+
+The application includes built-in templates for different use cases:
+
+- **Personal Expenses** - For individual expense tracking
+- **Business Expenses** - For business expense reports with approval fields
+- **Tax Preparation** - Optimized for tax filing with categorization
+- **Accounting Integration** - Formatted for accounting software import
+- **Detailed Analysis** - Comprehensive data with all available fields
 
 ## Google API Setup
 
@@ -308,6 +381,11 @@ python main.py --auth
 - Increase confidence threshold: `--confidence 0.9`
 - Enable preprocessing: remove `--no-preprocessing`
 - Check image quality in cache directory
+
+**Export issues:**
+- Check output directory permissions
+- Verify matplotlib dependencies: `pip install matplotlib seaborn`
+- Try basic export first: `--export` before `--export-comprehensive`
 
 **Cache issues:**
 ```bash
@@ -374,7 +452,10 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Roadmap
 
-- **Phase 4**: Spreadsheet export and data formatting
+- ✅ **Phase 1**: Project Setup and Authentication
+- ✅ **Phase 2**: Google Services Integration  
+- ✅ **Phase 3**: OCR and Data Extraction
+- ✅ **Phase 4**: Data Export and Spreadsheet Generation
 - **Phase 5**: Error handling and quality assurance
 - **Phase 6**: Web interface and advanced features
 
