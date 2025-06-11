@@ -67,6 +67,28 @@ Examples:
         metavar='ALBUM_ID',
         help='Google Photos album ID to process'
     )
+    source_group.add_argument(
+        '--list-drive-folders',
+        action='store_true',
+        help='List available Google Drive folders'
+    )
+    source_group.add_argument(
+        '--list-photos-albums',
+        action='store_true',
+        help='List available Google Photos albums'
+    )
+    source_group.add_argument(
+        '--search-drive',
+        type=str,
+        metavar='NAME',
+        help='Search Google Drive folders by name'
+    )
+    source_group.add_argument(
+        '--search-photos',
+        type=str,
+        metavar='TITLE',
+        help='Search Google Photos albums by title'
+    )
     
     # Configuration options
     config_group = parser.add_argument_group('Configuration')
@@ -241,6 +263,47 @@ def main():
         logger.error(f"Failed to load configuration: {str(e)}")
         return 1
     
+    # Handle listing and search commands
+    if args.list_drive_folders or args.list_photos_albums or args.search_drive or args.search_photos:
+        try:
+            from src.services.image_processor import ImageProcessor
+            processor = ImageProcessor(config, auth_manager)
+            
+            if args.list_drive_folders:
+                folders = processor.list_available_drive_folders()
+                print(f"\nFound {len(folders)} Google Drive folders:")
+                for folder in folders[:20]:  # Limit to first 20
+                    print(f"  {folder['id']} - {folder['name']}")
+                if len(folders) > 20:
+                    print(f"  ... and {len(folders) - 20} more")
+            
+            elif args.list_photos_albums:
+                albums = processor.list_available_photos_albums()
+                print(f"\nFound {len(albums)} Google Photos albums:")
+                for album in albums[:20]:  # Limit to first 20
+                    print(f"  {album['id']} - {album['title']}")
+                if len(albums) > 20:
+                    print(f"  ... and {len(albums) - 20} more")
+            
+            elif args.search_drive:
+                folders = processor.search_drive_folders(args.search_drive)
+                print(f"\nFound {len(folders)} Google Drive folders matching '{args.search_drive}':")
+                for folder in folders:
+                    print(f"  {folder['id']} - {folder['name']}")
+            
+            elif args.search_photos:
+                albums = processor.search_photos_albums(args.search_photos)
+                print(f"\nFound {len(albums)} Google Photos albums matching '{args.search_photos}':")
+                for album in albums:
+                    print(f"  {album['id']} - {album['title']}")
+            
+            return 0
+            
+        except Exception as e:
+            logger.error(f"Listing/search failed: {str(e)}")
+            print(f"ERROR: {str(e)}")
+            return 1
+    
     # Check if we have a source to process
     if not (config.google_drive_folder_id or config.google_photos_album_id):
         print("ERROR: No source specified!")
@@ -249,6 +312,7 @@ def main():
         print("  --photos-album <ALBUM_ID>")
         print("Or configure in config file.")
         print()
+        print("Use --list-drive-folders or --list-photos-albums to see available sources.")
         print("Run 'python main.py --help' for more options.")
         return 1
     
@@ -259,18 +323,50 @@ def main():
         print("Run 'python main.py --auth' to authenticate first.")
         return 1
     
-    # TODO: Implement processing logic in Phase 2
-    print("Receipt processing will be implemented in Phase 2!")
-    print(f"Would process:")
-    if config.google_drive_folder_id:
-        print(f"  - Google Drive folder: {config.google_drive_folder_id}")
-    if config.google_photos_album_id:
-        print(f"  - Google Photos album: {config.google_photos_album_id}")
-    print(f"  - Output format: {config.export.output_format}")
-    print(f"  - Output directory: {config.export.output_directory}")
-    
-    logger.info("Receipt Scanner completed Phase 1 setup")
-    return 0
+    # Initialize image processor
+    try:
+        from src.services.image_processor import ImageProcessor
+        processor = ImageProcessor(config, auth_manager)
+        
+        # Process images based on configuration
+        results = None
+        
+        if config.google_drive_folder_id:
+            print(f"Processing Google Drive folder: {config.google_drive_folder_id}")
+            results = processor.process_drive_folder(config.google_drive_folder_id)
+        elif config.google_photos_album_id:
+            print(f"Processing Google Photos album: {config.google_photos_album_id}")
+            results = processor.process_photos_album(config.google_photos_album_id)
+        
+        if results:
+            # Display results
+            print("\n" + "="*60)
+            print("PROCESSING RESULTS")
+            print("="*60)
+            print(f"Source: {results['source_name']} ({results['source_type']})")
+            print(f"Total files found: {results['total_files_found']}")
+            print(f"Successfully processed: {results['processed_files']}")
+            print(f"Skipped (cached): {results['skipped_files']}")
+            print(f"Errors: {results['error_files']}")
+            
+            if results['duplicate_groups'] > 0:
+                print(f"Duplicate groups found: {results['duplicate_groups']}")
+            
+            # Display cache stats
+            cache_stats = processor.get_cache_stats()
+            print(f"\nCache Usage: {cache_stats['mb_used']} MB / {cache_stats['max_size_mb']} MB ({cache_stats['usage_percent']}%)")
+            print(f"Unique files: {cache_stats['unique_files']}, Duplicates: {cache_stats['duplicate_files']}")
+            
+            print("\n✓ Phase 2 processing completed successfully!")
+            print("Next: Phase 3 will add OCR and data extraction capabilities.")
+        
+        logger.info("Receipt Scanner Phase 2 completed successfully")
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Processing failed: {str(e)}")
+        print(f"ERROR: Processing failed: {str(e)}")
+        return 1
 
 
 if __name__ == '__main__':

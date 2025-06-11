@@ -34,7 +34,15 @@ The project follows a modular architecture as outlined in the development plan:
 - Command-line interface with argument parsing
 - Logging system with configurable levels
 
-📋 **Next Phase**: Google Services Integration (Phase 2)
+✅ **Phase 2 Complete**: Google Services Integration
+- Google Drive API integration with folder listing and file download
+- Google Photos Library API integration with album access
+- Image download and caching system with hash calculation
+- Duplicate detection using perceptual hashing and SSIM
+- Comprehensive image processing pipeline
+- Cache management with size limits and cleanup
+
+📋 **Next Phase**: OCR and Data Extraction (Phase 3)
 
 ## Common Commands
 
@@ -51,10 +59,22 @@ python main.py --auth
 # Revoke stored credentials
 python main.py --revoke
 
-# Process Google Drive folder (when Phase 2 is complete)
+# List available Google Drive folders
+python main.py --list-drive-folders
+
+# List available Google Photos albums  
+python main.py --list-photos-albums
+
+# Search for Drive folders by name
+python main.py --search-drive "receipts"
+
+# Search for Photos albums by title
+python main.py --search-photos "expenses"
+
+# Process Google Drive folder
 python main.py --drive-folder <FOLDER_ID>
 
-# Process Google Photos album (when Phase 2 is complete)
+# Process Google Photos album
 python main.py --photos-album <ALBUM_ID>
 
 # Run with custom configuration
