@@ -42,7 +42,16 @@ The project follows a modular architecture as outlined in the development plan:
 - Comprehensive image processing pipeline
 - Cache management with size limits and cleanup
 
-📋 **Next Phase**: OCR and Data Extraction (Phase 3)
+✅ **Phase 3 Complete**: OCR and Data Extraction
+- Google Cloud Vision API integration with document detection
+- OpenCV image preprocessing for enhanced OCR accuracy
+- Tesseract fallback for offline OCR processing
+- Advanced receipt data extraction with regex patterns
+- Merchant-specific parsing templates (Walmart, Target, Costco, etc.)
+- Comprehensive validation and confidence scoring system
+- Receipt data structuring with items, totals, dates, and merchants
+
+📋 **Next Phase**: Data Export and Spreadsheet Generation (Phase 4)
 
 ## Common Commands
 
@@ -71,11 +80,20 @@ python main.py --search-drive "receipts"
 # Search for Photos albums by title
 python main.py --search-photos "expenses"
 
-# Process Google Drive folder
+# Process Google Drive folder (download only)
 python main.py --drive-folder <FOLDER_ID>
 
-# Process Google Photos album
+# Process Google Photos album (download only)
 python main.py --photos-album <ALBUM_ID>
+
+# Process with OCR and data extraction
+python main.py --drive-folder <FOLDER_ID> --ocr
+
+# Process with OCR and custom confidence threshold
+python main.py --photos-album <ALBUM_ID> --ocr --confidence 0.9
+
+# Process without image preprocessing
+python main.py --drive-folder <FOLDER_ID> --ocr --no-preprocessing
 
 # Run with custom configuration
 python main.py --config config/config.yaml

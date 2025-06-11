@@ -126,6 +126,21 @@ Examples:
         action='store_true',
         help='Skip duplicate detection'
     )
+    process_group.add_argument(
+        '--ocr',
+        action='store_true',
+        help='Enable OCR processing and data extraction'
+    )
+    process_group.add_argument(
+        '--no-preprocessing',
+        action='store_true',
+        help='Disable image preprocessing'
+    )
+    process_group.add_argument(
+        '--ocr-only',
+        action='store_true',
+        help='Run OCR without downloading (process cached images only)'
+    )
     
     # Logging options
     log_group = parser.add_argument_group('Logging')
@@ -256,6 +271,8 @@ def main():
             config.google_drive_folder_id = args.drive_folder
         if args.photos_album:
             config.google_photos_album_id = args.photos_album
+        if args.no_preprocessing:
+            config.processing.use_opencv_preprocessing = False
         
         logger.info(f"Configuration loaded from: {config_manager.config_file or 'defaults'}")
         
@@ -331,12 +348,29 @@ def main():
         # Process images based on configuration
         results = None
         
+        # Check OCR engine status
+        if args.ocr:
+            ocr_status = processor.get_ocr_engine_status()
+            print(f"OCR Engine Status:")
+            print(f"  Google Vision: {'✓' if ocr_status['google_vision_available'] else '✗'}")
+            print(f"  Tesseract: {'✓' if ocr_status['tesseract_available'] else '✗'}")
+            print(f"  Preprocessing: {'✓' if ocr_status['preprocessing_enabled'] else '✗'}")
+            print()
+        
         if config.google_drive_folder_id:
-            print(f"Processing Google Drive folder: {config.google_drive_folder_id}")
-            results = processor.process_drive_folder(config.google_drive_folder_id)
+            if args.ocr:
+                print(f"Processing Google Drive folder with OCR: {config.google_drive_folder_id}")
+                results = processor.process_drive_folder_with_ocr(config.google_drive_folder_id)
+            else:
+                print(f"Processing Google Drive folder: {config.google_drive_folder_id}")
+                results = processor.process_drive_folder(config.google_drive_folder_id)
         elif config.google_photos_album_id:
-            print(f"Processing Google Photos album: {config.google_photos_album_id}")
-            results = processor.process_photos_album(config.google_photos_album_id)
+            if args.ocr:
+                print(f"Processing Google Photos album with OCR: {config.google_photos_album_id}")
+                results = processor.process_photos_album_with_ocr(config.google_photos_album_id)
+            else:
+                print(f"Processing Google Photos album: {config.google_photos_album_id}")
+                results = processor.process_photos_album(config.google_photos_album_id)
         
         if results:
             # Display results
@@ -352,13 +386,63 @@ def main():
             if results['duplicate_groups'] > 0:
                 print(f"Duplicate groups found: {results['duplicate_groups']}")
             
+            # Display OCR results if available
+            if 'ocr_results' in results:
+                print(f"OCR Success: {results['ocr_success_count']}/{len(results['ocr_results'])}")
+                print(f"Valid receipts: {results['receipts_extracted']}")
+                
+                # Show summary of successful OCR results
+                successful_ocr = [r for r in results['ocr_results'] if r.get('success')]
+                if successful_ocr:
+                    print(f"\nOCR Methods used:")
+                    method_counts = {}
+                    for r in successful_ocr:
+                        method = r.get('ocr_method', 'unknown')
+                        method_counts[method] = method_counts.get(method, 0) + 1
+                    
+                    for method, count in method_counts.items():
+                        print(f"  {method}: {count}")
+                    
+                    # Show average confidence
+                    avg_confidence = sum(r.get('ocr_confidence', 0) for r in successful_ocr) / len(successful_ocr)
+                    print(f"Average OCR confidence: {avg_confidence:.1%}")
+                    
+                    # Show receipts with valid data
+                    valid_receipts = [r for r in successful_ocr if r.get('receipt_data') and 
+                                    r['receipt_data'].get('confidence_score', 0) >= config.processing.confidence_threshold]
+                    
+                    if valid_receipts:
+                        print(f"\nValid Receipt Summary:")
+                        total_amount = 0
+                        merchants = set()
+                        
+                        for receipt in valid_receipts:
+                            rd = receipt['receipt_data']
+                            if rd.get('total_amount'):
+                                try:
+                                    total_amount += float(rd['total_amount'])
+                                except (ValueError, TypeError):
+                                    pass
+                            if rd.get('merchant_name'):
+                                merchants.add(rd['merchant_name'])
+                        
+                        print(f"  Total amount processed: ${total_amount:.2f}")
+                        print(f"  Unique merchants: {len(merchants)}")
+                        
+                        if len(merchants) <= 5:
+                            print(f"  Merchants: {', '.join(merchants)}")
+            
             # Display cache stats
             cache_stats = processor.get_cache_stats()
             print(f"\nCache Usage: {cache_stats['mb_used']} MB / {cache_stats['max_size_mb']} MB ({cache_stats['usage_percent']}%)")
             print(f"Unique files: {cache_stats['unique_files']}, Duplicates: {cache_stats['duplicate_files']}")
             
-            print("\n✓ Phase 2 processing completed successfully!")
-            print("Next: Phase 3 will add OCR and data extraction capabilities.")
+            if args.ocr:
+                print("\n✓ Phase 3 OCR processing completed successfully!")
+                print("Next: Phase 4 will add spreadsheet export capabilities.")
+            else:
+                print("\n✓ Phase 2 processing completed successfully!")
+                print("Next: Add --ocr flag to enable OCR and data extraction.")
         
         logger.info("Receipt Scanner Phase 2 completed successfully")
         return 0

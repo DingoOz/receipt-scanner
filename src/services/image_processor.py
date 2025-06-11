@@ -9,6 +9,9 @@ from ..services.drive_service import GoogleDriveService
 from ..services.photos_service import GooglePhotosService
 from ..storage.cache_manager import CacheManager
 from ..storage.duplicate_detector import DuplicateDetector
+from ..processing.ocr_engine import OCREngine
+from ..processing.receipt_parser import ReceiptParser
+from ..processing.validation import ReceiptValidator
 from ..utils.config import AppConfig
 
 
@@ -32,6 +35,11 @@ class ImageProcessor:
         self.photos_service = GooglePhotosService(auth_manager)
         self.cache_manager = CacheManager(config.storage)
         self.duplicate_detector = DuplicateDetector(config.storage)
+        
+        # Initialize OCR and processing
+        self.ocr_engine = OCREngine(config.processing, auth_manager)
+        self.receipt_parser = ReceiptParser()
+        self.receipt_validator = ReceiptValidator(config.processing.confidence_threshold)
     
     def process_drive_folder(self, folder_id: str) -> Dict[str, Any]:
         """
@@ -351,3 +359,185 @@ class ImageProcessor:
     def search_photos_albums(self, title: str) -> List[Dict[str, Any]]:
         """Search for Photos albums by title."""
         return self.photos_service.search_albums_by_title(title)
+    
+    def process_drive_folder_with_ocr(self, folder_id: str) -> Dict[str, Any]:
+        """
+        Process Google Drive folder with full OCR and data extraction.
+        
+        Args:
+            folder_id: Google Drive folder ID
+            
+        Returns:
+            Dict with processing and OCR results
+        """
+        try:
+            self.logger.info(f"Starting OCR processing of Google Drive folder: {folder_id}")
+            
+            # First get basic processing results
+            basic_results = self.process_drive_folder(folder_id)
+            
+            if not basic_results['success']:
+                return basic_results
+            
+            # Process each cached image with OCR
+            ocr_results = []
+            processed_files = basic_results.get('files', [])
+            
+            for i, file_info in enumerate(processed_files):
+                if file_info['status'] != 'processed' or not file_info.get('cache_path'):
+                    continue
+                
+                self.logger.info(f"OCR processing {i+1}/{len(processed_files)}: {file_info['file_name']}")
+                
+                try:
+                    ocr_result = self._process_single_image_ocr(Path(file_info['cache_path']), file_info)
+                    ocr_results.append(ocr_result)
+                except Exception as e:
+                    self.logger.error(f"OCR failed for {file_info['file_name']}: {str(e)}")
+                    ocr_results.append({
+                        'file_id': file_info['file_id'],
+                        'file_name': file_info['file_name'],
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            # Add OCR results to basic results
+            basic_results['ocr_results'] = ocr_results
+            basic_results['ocr_success_count'] = sum(1 for r in ocr_results if r.get('success', False))
+            basic_results['receipts_extracted'] = sum(1 for r in ocr_results if r.get('receipt_data') and r['receipt_data'].get('confidence_score', 0) >= self.config.processing.confidence_threshold)
+            
+            self.logger.info(f"OCR processing completed: {basic_results['ocr_success_count']}/{len(ocr_results)} successful")
+            return basic_results
+            
+        except Exception as e:
+            self.logger.error(f"OCR processing failed for Drive folder {folder_id}: {str(e)}")
+            raise
+    
+    def process_photos_album_with_ocr(self, album_id: str) -> Dict[str, Any]:
+        """
+        Process Google Photos album with full OCR and data extraction.
+        
+        Args:
+            album_id: Google Photos album ID
+            
+        Returns:
+            Dict with processing and OCR results
+        """
+        try:
+            self.logger.info(f"Starting OCR processing of Google Photos album: {album_id}")
+            
+            # First get basic processing results
+            basic_results = self.process_photos_album(album_id)
+            
+            if not basic_results['success']:
+                return basic_results
+            
+            # Process each cached image with OCR
+            ocr_results = []
+            processed_files = basic_results.get('files', [])
+            
+            for i, file_info in enumerate(processed_files):
+                if file_info['status'] != 'processed' or not file_info.get('cache_path'):
+                    continue
+                
+                self.logger.info(f"OCR processing {i+1}/{len(processed_files)}: {file_info['file_name']}")
+                
+                try:
+                    ocr_result = self._process_single_image_ocr(Path(file_info['cache_path']), file_info)
+                    ocr_results.append(ocr_result)
+                except Exception as e:
+                    self.logger.error(f"OCR failed for {file_info['file_name']}: {str(e)}")
+                    ocr_results.append({
+                        'file_id': file_info['file_id'],
+                        'file_name': file_info['file_name'],
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+            # Add OCR results to basic results
+            basic_results['ocr_results'] = ocr_results
+            basic_results['ocr_success_count'] = sum(1 for r in ocr_results if r.get('success', False))
+            basic_results['receipts_extracted'] = sum(1 for r in ocr_results if r.get('receipt_data') and r['receipt_data'].get('confidence_score', 0) >= self.config.processing.confidence_threshold)
+            
+            self.logger.info(f"OCR processing completed: {basic_results['ocr_success_count']}/{len(ocr_results)} successful")
+            return basic_results
+            
+        except Exception as e:
+            self.logger.error(f"OCR processing failed for Photos album {album_id}: {str(e)}")
+            raise
+    
+    def _process_single_image_ocr(self, image_path: Path, file_info: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process a single image with OCR and data extraction.
+        
+        Args:
+            image_path: Path to cached image
+            file_info: File information from previous processing
+            
+        Returns:
+            Dict with OCR results
+        """
+        try:
+            # Step 1: OCR processing
+            ocr_result = self.ocr_engine.process_receipt_image(image_path)
+            
+            # Step 2: Advanced parsing if OCR was successful
+            if ocr_result['success'] and ocr_result.get('receipt_data'):
+                receipt_data_dict = ocr_result['receipt_data']
+                
+                # Convert dict back to ReceiptData object for advanced parsing
+                from ..processing.data_extractor import ReceiptData, ReceiptItem
+                receipt_data = ReceiptData(**{k: v for k, v in receipt_data_dict.items() if k != 'items'})
+                
+                # Handle items separately
+                if receipt_data_dict.get('items'):
+                    receipt_data.items = [ReceiptItem(**item) for item in receipt_data_dict['items']]
+                
+                # Apply advanced parsing
+                enhanced_receipt = self.receipt_parser.parse_receipt_advanced(
+                    ocr_result['raw_text'], 
+                    receipt_data
+                )
+                
+                # Step 3: Validation
+                validation_result = self.receipt_validator.validate_receipt(enhanced_receipt)
+                
+                # Combine results
+                result = {
+                    'file_id': file_info['file_id'],
+                    'file_name': file_info['file_name'],
+                    'success': True,
+                    'ocr_method': ocr_result['ocr_method'],
+                    'ocr_confidence': ocr_result['ocr_confidence'],
+                    'processing_time': ocr_result.get('processing_time', 0),
+                    'receipt_data': enhanced_receipt.to_dict(),
+                    'validation': validation_result,
+                    'raw_text': ocr_result['raw_text'],
+                    'quality_metrics': ocr_result.get('quality_metrics', {})
+                }
+                
+                return result
+            
+            else:
+                # OCR failed
+                return {
+                    'file_id': file_info['file_id'],
+                    'file_name': file_info['file_name'],
+                    'success': False,
+                    'error': ocr_result.get('error', 'OCR processing failed'),
+                    'ocr_method': ocr_result.get('ocr_method', 'none'),
+                    'ocr_confidence': 0.0
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Single image OCR processing failed: {str(e)}")
+            return {
+                'file_id': file_info['file_id'],
+                'file_name': file_info['file_name'],
+                'success': False,
+                'error': str(e)
+            }
+    
+    def get_ocr_engine_status(self) -> Dict[str, Any]:
+        """Get OCR engine status and capabilities."""
+        return self.ocr_engine.get_engine_status()
