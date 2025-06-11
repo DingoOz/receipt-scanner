@@ -1,0 +1,32 @@
+# Google APIs
+google-api-python-client==2.108.0
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-cloud-vision==3.4.5
+
+# Image Processing
+opencv-python==4.8.1.78
+Pillow==10.1.0
+
+# OCR Fallback
+pytesseract==0.3.10
+
+# Data Processing
+pandas==2.1.4
+openpyxl==3.1.2
+
+# Utilities
+python-dateutil==2.8.2
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.23.0
+configparser==6.0.0
+
+# CLI
+argparse
+click==8.1.7
+
+# Development
+pytest==7.4.3
+pytest-cov==4.1.0
+black==23.11.0
+flake8==6.1.0

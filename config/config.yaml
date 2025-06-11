@@ -1,0 +1,37 @@
+# Receipt Scanner Configuration
+
+# Image processing and OCR settings
+processing:
+  confidence_threshold: 0.8        # Minimum confidence for OCR results (0.0-1.0)
+  max_image_size: 2048            # Maximum image dimension in pixels
+  use_opencv_preprocessing: true   # Enable OpenCV image preprocessing
+  fallback_to_tesseract: true     # Use Tesseract if Google Vision fails
+  supported_formats:              # Supported image formats
+    - '.jpg'
+    - '.jpeg'
+    - '.png'
+    - '.tiff'
+    - '.bmp'
+
+# Data export settings
+export:
+  output_format: 'xlsx'           # Output format: csv, xlsx, json
+  output_directory: 'output'      # Directory for exported files
+  include_confidence_scores: true # Include OCR confidence in output
+  include_raw_text: false         # Include raw OCR text in output
+  date_format: '%Y-%m-%d'         # Date format for output
+
+# Storage and caching settings
+storage:
+  cache_directory: 'cache'        # Directory for cached images
+  max_cache_size_mb: 1000        # Maximum cache size in MB
+  duplicate_threshold: 0.95      # Similarity threshold for duplicates (0.0-1.0)
+  keep_original_images: false    # Keep original images after processing
+
+# Google services configuration
+# Leave empty to configure via environment variables or CLI
+google_drive_folder_id: null     # Google Drive folder ID to process
+google_photos_album_id: null     # Google Photos album ID to process
+
+# Application settings
+log_level: 'INFO'               # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
