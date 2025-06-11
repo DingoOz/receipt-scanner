@@ -142,6 +142,31 @@ Examples:
         help='Run OCR without downloading (process cached images only)'
     )
     
+    # Export options
+    export_group = parser.add_argument_group('Export')
+    export_group.add_argument(
+        '--export',
+        action='store_true',
+        help='Enable data export after OCR processing'
+    )
+    export_group.add_argument(
+        '--export-templates',
+        type=str,
+        nargs='+',
+        metavar='TEMPLATE',
+        help='Export templates to use (e.g., personal_expenses business_expenses)'
+    )
+    export_group.add_argument(
+        '--export-comprehensive',
+        action='store_true',
+        help='Create comprehensive export package with reports and multiple formats'
+    )
+    export_group.add_argument(
+        '--export-reports',
+        action='store_true',
+        help='Include visual reports in export'
+    )
+    
     # Logging options
     log_group = parser.add_argument_group('Logging')
     log_group.add_argument(
@@ -431,6 +456,89 @@ def main():
                         
                         if len(merchants) <= 5:
                             print(f"  Merchants: {', '.join(merchants)}")
+                        
+                        # Handle export if requested and we have valid receipts
+                        if (args.export or args.export_templates or args.export_comprehensive) and valid_receipts:
+                            print("\n" + "="*60)
+                            print("EXPORTING DATA")
+                            print("="*60)
+                            
+                            try:
+                                from src.export.batch_exporter import BatchExporter
+                                
+                                # Create batch exporter
+                                batch_exporter = BatchExporter(config.export)
+                                source_name = results['source_name'].replace(' ', '_')
+                                
+                                export_success = False
+                                
+                                if args.export_comprehensive:
+                                    # Create comprehensive export package
+                                    export_result = batch_exporter.export_comprehensive_package(
+                                        results['ocr_results'],
+                                        source_name,
+                                        include_reports=args.export_reports or True,
+                                        include_all_templates=False
+                                    )
+                                    
+                                    if export_result['success']:
+                                        package = export_result['package']
+                                        print(f"✓ Comprehensive export package created!")
+                                        print(f"  Total files: {package['summary']['total_files_created']}")
+                                        print(f"  Spreadsheets: {package['summary']['spreadsheet_files']}")
+                                        print(f"  Reports: {package['summary']['report_files']}")
+                                        print(f"  Template exports: {package['summary']['template_files']}")
+                                        print(f"  Output directory: {package['summary']['output_directory']}")
+                                        export_success = True
+                                    else:
+                                        print(f"✗ Comprehensive export failed: {export_result.get('error', 'Unknown error')}")
+                                
+                                elif args.export_templates:
+                                    # Export with specific templates
+                                    export_result = batch_exporter.export_with_multiple_templates(
+                                        results['ocr_results'],
+                                        source_name,
+                                        args.export_templates
+                                    )
+                                    
+                                    if export_result['success']:
+                                        print(f"✓ Template exports completed!")
+                                        print(f"  Templates used: {export_result['successful_templates']}/{export_result['total_templates']}")
+                                        print(f"  Total files: {export_result['total_files_exported']}")
+                                        
+                                        for template_result in export_result['exports']:
+                                            if template_result['success']:
+                                                print(f"    {template_result['template_name']}: {len(template_result['exported_files'])} files")
+                                        export_success = True
+                                    else:
+                                        print(f"✗ Template export failed: {export_result.get('error', 'Unknown error')}")
+                                
+                                elif args.export:
+                                    # Standard export using spreadsheet exporter
+                                    from src.export.spreadsheet_exporter import SpreadsheetExporter
+                                    spreadsheet_exporter = SpreadsheetExporter(config.export)
+                                    
+                                    export_result = spreadsheet_exporter.export_receipts(
+                                        results['ocr_results'],
+                                        source_name
+                                    )
+                                    
+                                    if export_result['success']:
+                                        print(f"✓ Standard export completed!")
+                                        print(f"  Receipts exported: {export_result['receipts_exported']}")
+                                        print(f"  Files created: {len(export_result['exported_files'])}")
+                                        for file_path in export_result['exported_files']:
+                                            print(f"    {file_path}")
+                                        export_success = True
+                                    else:
+                                        print(f"✗ Standard export failed: {export_result.get('error', 'Unknown error')}")
+                                
+                                if export_success:
+                                    print("\n✓ Phase 4 export completed successfully!")
+                                
+                            except Exception as e:
+                                logger.error(f"Export failed: {str(e)}")
+                                print(f"✗ Export failed: {str(e)}")
             
             # Display cache stats
             cache_stats = processor.get_cache_stats()
@@ -438,8 +546,12 @@ def main():
             print(f"Unique files: {cache_stats['unique_files']}, Duplicates: {cache_stats['duplicate_files']}")
             
             if args.ocr:
-                print("\n✓ Phase 3 OCR processing completed successfully!")
-                print("Next: Phase 4 will add spreadsheet export capabilities.")
+                if args.export or args.export_templates or args.export_comprehensive:
+                    print("\n✓ Phase 4 OCR processing and export completed successfully!")
+                    print("All phases implemented: Image processing, OCR, data extraction, and export.")
+                else:
+                    print("\n✓ Phase 3 OCR processing completed successfully!")
+                    print("Next: Add --export, --export-templates, or --export-comprehensive for data export.")
             else:
                 print("\n✓ Phase 2 processing completed successfully!")
                 print("Next: Add --ocr flag to enable OCR and data extraction.")

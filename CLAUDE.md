@@ -51,7 +51,14 @@ The project follows a modular architecture as outlined in the development plan:
 - Comprehensive validation and confidence scoring system
 - Receipt data structuring with items, totals, dates, and merchants
 
-📋 **Next Phase**: Data Export and Spreadsheet Generation (Phase 4)
+✅ **Phase 4 Complete**: Data Export and Spreadsheet Generation
+- Multi-format export system (CSV, Excel, JSON)
+- Customizable export templates for different use cases (personal, business, tax, accounting)
+- Professional Excel formatting with charts and multiple worksheets
+- Visual report generation with matplotlib charts and PDF reports
+- Batch export functionality with multiple templates simultaneously
+- Data formatting with currency, date, and field mapping options
+- Comprehensive export packages with summaries and analytics
 
 ## Common Commands
 
@@ -94,6 +101,18 @@ python main.py --photos-album <ALBUM_ID> --ocr --confidence 0.9
 
 # Process without image preprocessing
 python main.py --drive-folder <FOLDER_ID> --ocr --no-preprocessing
+
+# Process with OCR and standard export
+python main.py --drive-folder <FOLDER_ID> --ocr --export
+
+# Process with OCR and specific export templates
+python main.py --drive-folder <FOLDER_ID> --ocr --export-templates personal_expenses business_expenses
+
+# Process with OCR and comprehensive export package
+python main.py --drive-folder <FOLDER_ID> --ocr --export-comprehensive
+
+# Process with OCR and comprehensive export including reports
+python main.py --drive-folder <FOLDER_ID> --ocr --export-comprehensive --export-reports
 
 # Run with custom configuration
 python main.py --config config/config.yaml
